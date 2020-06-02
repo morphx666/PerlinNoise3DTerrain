@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -15,14 +16,14 @@ namespace PerlinNoise3DTerrain {
         private double AngleZ = 0.0;
 
         private double fov = 512.0;
-        private double distance = 400.0;
+        private double distance = 300.0;
 
         private Point3d camera = new Point3d(0, 0, -100);
 
         private int w;
         private int h;
 
-        private int scale = 20;
+        private int scale = 16;
         private double sw;
         private double sw2;
         private double sh;
@@ -35,11 +36,13 @@ namespace PerlinNoise3DTerrain {
         private double pNoiseYOffset = 0.0;
         private double pNoiseZFactor = 300.0;
         private double pNoiseZOffset = 0.0;
-        private double pNoiseFactorSpeed = 0.15;
+        private double pNoiseFactorSpeed = 0.08;
+        private double pNoiseZScale = 300.0;
 
         private int xMove = 0;
         private int yMove = 0;
         private int zMove = 0;
+        private int zScale = 0;
 
         private List<Line3d> ls = new List<Line3d>();
         private Brush[] zPalette;
@@ -70,13 +73,14 @@ namespace PerlinNoise3DTerrain {
 
             Task.Run(() => {
                 while(true) {
-                    Thread.Sleep(33);
+                    Thread.Sleep(15);
                     if(hasChanged) {
-                        this.Invalidate();
-
                         pNoiseXOffset += xMove * pNoiseFactorSpeed;
                         pNoiseYOffset += yMove * pNoiseFactorSpeed;
                         pNoiseZOffset += zMove * pNoiseFactorSpeed;
+                        pNoiseZScale += zScale * pNoiseFactorSpeed * 4.0;
+
+                        this.Invalidate();
                     }
                 }
             });
@@ -99,14 +103,20 @@ namespace PerlinNoise3DTerrain {
                     case Keys.Down:
                         yMove = -1;
                         break;
-                    case Keys.Add:
+                    case Keys.Q:
                         zMove = 1;
                         break;
-                    case Keys.Subtract:
+                    case Keys.A:
                         zMove = -1;
                         break;
+                    case Keys.Add:
+                        zScale = 1;
+                        break;
+                    case Keys.Subtract:
+                        zScale = -1;
+                        break;
                 }
-                hasChanged = xMove != 0 || yMove != 0 || zMove != 0;
+                hasChanged = xMove != 0 || yMove != 0 || zMove != 0 || zScale != 0;
             };
 
             this.KeyUp += (object o, KeyEventArgs e) => {
@@ -119,12 +129,16 @@ namespace PerlinNoise3DTerrain {
                     case Keys.Down:
                         yMove = 0;
                         break;
-                    case Keys.Add:
-                    case Keys.Subtract:
+                    case Keys.Q:
+                    case Keys.A:
                         zMove = 0;
                         break;
+                    case Keys.Add:
+                    case Keys.Subtract:
+                        zScale = 0;
+                        break;
                 }
-                hasChanged = xMove != 0 || yMove != 0 || zMove != 0;
+                hasChanged = xMove != 0 || yMove != 0 || zMove != 0 || zScale != 0;
             };
         }
 
@@ -135,6 +149,14 @@ namespace PerlinNoise3DTerrain {
                     Point3d p2 = new Point3d(x - sw2 + scale, y, 0);
                     Point3d p3 = new Point3d(x - sw2 + scale, y + scale, 0);
                     Point3d p4 = new Point3d(x - sw2, y + scale, 0);
+
+                    Point3d tp1 = TransformPoint(p1);
+                    Point3d tp2 = TransformPoint(p2);
+                    Point3d tp3 = TransformPoint(p3);
+                    Point3d tp4 = TransformPoint(p4);
+
+                    if(!IsPointValid(tp1) && !IsPointValid(tp2) &&
+                       !IsPointValid(tp3) && !IsPointValid(tp4)) continue;
 
                     ls.Add(new Line3d(p1, p2));
                     ls.Add(new Line3d(p2, p3));
@@ -148,9 +170,10 @@ namespace PerlinNoise3DTerrain {
             Color[] baseZPalette = new Color[] {
                                             Color.SlateBlue,
                                             Color.Blue,
-                                            Color.DarkGreen,
                                             Color.Green,
-                                            Color.Brown,
+                                            Color.DarkGreen,
+                                            Color.Maroon,
+                                            Color.SaddleBrown,
                                             Color.LightGray,
                                             Color.White
                                         };
@@ -193,18 +216,30 @@ namespace PerlinNoise3DTerrain {
         }
 
         private Point3d GetPerlinZ(Point3d p) {
-            return new Point3d(p.X, p.Y,
-                pNoiseZFactor * PerlinNoise.Perlin(
-                    w + (p.X + sw2) / pNoiseXFactor + pNoiseXOffset,
+            p.Z = pNoiseZScale * PerlinNoise.Perlin(
+                    w + p.X / pNoiseXFactor + pNoiseXOffset,
                     h + p.Y / pNoiseYFactor + pNoiseYOffset,
-                    1.0 / pNoiseZFactor + (pNoiseZOffset / 10)));
+                    w + 1.0 / pNoiseZFactor + (pNoiseZOffset / 10));
+            return p;
+            //return new Point3d(p.X, p.Y,
+            //    pNoiseZFactor * PerlinNoise.Perlin(
+            //        w + p.X / pNoiseXFactor + pNoiseXOffset,
+            //        h + p.Y / pNoiseYFactor + pNoiseYOffset,
+            //        w + 1.0 / pNoiseZFactor + (pNoiseZOffset / 10)));
+        }
+
+        private bool IsPointValid(Point3d p) {
+            bool isXValid = p.X >= 0 && p.X <= w;
+            bool isYValid = p.Y >= -h && p.Y <= h;
+            bool isZvalid = p.Z >= distanceFactor;
+
+            return isXValid && isYValid && isZvalid;
         }
 
         protected override void OnPaint(PaintEventArgs e) {
             Graphics g = e.Graphics;
 
-            g.Clear(Color.SkyBlue);
-
+            g.CompositingMode = CompositingMode.SourceCopy;
             g.TranslateTransform(0, h - h / 2 + (float)(pNoiseZFactor * 0.95));
 
             // Cycle through all lines in reverse z-order (from farthest to closest)
@@ -219,12 +254,11 @@ namespace PerlinNoise3DTerrain {
                 Point3d tp3 = TransformPoint(p3);
                 Point3d tp4 = TransformPoint(p4);
 
-                if(tp1.Z >= distanceFactor && tp2.Z >= distanceFactor &&
-                   tp3.Z >= distanceFactor && tp4.Z >= distanceFactor) {
+                if(IsPointValid(tp1) || IsPointValid(tp2) ||
+                   IsPointValid(tp3) || IsPointValid(tp4)) {
 
-                    //Simulate z-buffering by painting black the inside of the two triangles
-                    double az = (p1.Z + p2.Z + p3.Z + p4.Z) / 4;
-                    int ci = (int)(zPalette.Length * az / pNoiseZFactor);
+                    double az = (p1.Z + p2.Z + p3.Z + p4.Z) / 4.0;
+                    int ci = (int)(zPalette.Length * az / pNoiseZScale);
                     g.FillPolygon(zPalette[ci], new PointF[] {
                                                         tp1.ToPointF(),
                                                         tp2.ToPointF(),
