@@ -23,30 +23,30 @@
         /// the contents of this method with the code editor.
         /// </summary>
         private void InitializeComponent() {
-            this.label1 = new System.Windows.Forms.Label();
+            this.LabelShortcuts = new System.Windows.Forms.Label();
             this.SuspendLayout();
             // 
-            // label1
+            // LabelShortcuts
             // 
-            this.label1.AutoSize = true;
-            this.label1.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(11)))), ((int)(((byte)(11)))), ((int)(((byte)(11)))));
-            this.label1.Font = new System.Drawing.Font("Consolas", 11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.label1.ForeColor = System.Drawing.Color.Gainsboro;
-            this.label1.Location = new System.Drawing.Point(12, 9);
-            this.label1.Name = "label1";
-            this.label1.Padding = new System.Windows.Forms.Padding(8);
-            this.label1.Size = new System.Drawing.Size(376, 70);
-            this.label1.TabIndex = 0;
-            this.label1.Text = "Arrow Keys = Move\r\n[+] / [-]  = Change terrain height\r\n[Q] / [A]  = Change Perlin" +
+            this.LabelShortcuts.AutoSize = true;
+            this.LabelShortcuts.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(11)))), ((int)(((byte)(11)))), ((int)(((byte)(11)))));
+            this.LabelShortcuts.Font = new System.Drawing.Font("Consolas", 11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.LabelShortcuts.ForeColor = System.Drawing.Color.Gainsboro;
+            this.LabelShortcuts.Location = new System.Drawing.Point(12, 9);
+            this.LabelShortcuts.Name = "LabelShortcuts";
+            this.LabelShortcuts.Padding = new System.Windows.Forms.Padding(8);
+            this.LabelShortcuts.Size = new System.Drawing.Size(466, 82);
+            this.LabelShortcuts.TabIndex = 0;
+            this.LabelShortcuts.Text = "Arrow Keys = Move\r\n[+] / [-]  = Change terrain height\r\n[Q] / [A]  = Change Perlin" +
     " Noise Z attribute";
             // 
             // FormMain
             // 
-            this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 20F);
+            this.AutoScaleDimensions = new System.Drawing.SizeF(11F, 25F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.BackColor = System.Drawing.Color.SkyBlue;
             this.ClientSize = new System.Drawing.Size(1067, 692);
-            this.Controls.Add(this.label1);
+            this.Controls.Add(this.LabelShortcuts);
             this.Font = new System.Drawing.Font("Segoe UI", 11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.ForeColor = System.Drawing.Color.DimGray;
             this.Margin = new System.Windows.Forms.Padding(4, 5, 4, 5);
@@ -60,7 +60,7 @@
 
         #endregion
 
-        private System.Windows.Forms.Label label1;
+        private System.Windows.Forms.Label LabelShortcuts;
     }
 }
 

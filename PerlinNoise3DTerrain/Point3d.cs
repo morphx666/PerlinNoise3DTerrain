@@ -22,6 +22,8 @@ namespace PerlinNoise3DTerrain {
 
         public Point3d(Point3d p) : this(p.X, p.Y, p.Z) { }
 
+        public Point3d(PointF p) : this(p.X, p.Y, 0) { }
+
         public double Distance(Point3d p) {
             double dx = X - p.X;
             double dy = Y - p.Y;
@@ -56,7 +58,7 @@ namespace PerlinNoise3DTerrain {
 
         public Point3d Normalized() {
             Point3d p = new Point3d(this);
-            Normalize();
+            p.Normalize();
             return p;
         }
 
@@ -129,7 +131,7 @@ namespace PerlinNoise3DTerrain {
         }
 
         public override string ToString() {
-            return $"({X:F2}, {Y:F2}, {Z:F2})";
+            return $"({X:N2}, {Y:N2}, {Z:N2})";
         }
 
         public Point3d AsInt(int padding = 0) {
@@ -166,15 +168,30 @@ namespace PerlinNoise3DTerrain {
             return a;
         }
 
+        public double AngleXY2(Point3d p) {
+            double a = Math.Atan2(p.Y - Y, p.X - X);
+            return a;
+        }
+
         public double AngleXZ(Point3d p) {
             double a = Math.Atan2(p.Z - Z, p.X - X);
             if(a < 0) a += PI2;
             return a;
         }
 
+        public double AngleXZ2(Point3d p) {
+            double a = Math.Atan2(p.Z - Z, p.X - X);
+            return a;
+        }
+
         public double AngleYZ(Point3d p) {
             double a = Math.Atan2(p.Z - Z, p.Y - Y);
             if(a < 0) a += PI2;
+            return a;
+        }
+
+        public double AngleYZ2(Point3d p) {
+            double a = Math.Atan2(p.Z - Z, p.Y - Y);
             return a;
         }
 
