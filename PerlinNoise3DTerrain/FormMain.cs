@@ -30,7 +30,8 @@ namespace PerlinNoise3DTerrain {
         private int w;
         private int h;
 
-        private int scale = 10;
+        private int moveFactor = 3;
+        private int scale = 8;
         private double sw;
         private double sw2;
         private double sh;
@@ -60,7 +61,7 @@ namespace PerlinNoise3DTerrain {
         private const double maxAngle = 140 * Point3d.ToRad;
 
         private bool hasChanged = true;
-        private object lckObj = new object();
+        private readonly object lckObj = new object();
         private bool isInit = false;
 
         public FormMain() {
@@ -106,35 +107,35 @@ namespace PerlinNoise3DTerrain {
         private Point mousePos;
         private bool isMouseDown;
         private void AddEventHandlers() {
-            const int factor = 4;
-
             this.KeyDown += (object s, KeyEventArgs e) => {
                 RenderModes currentRenderMode = renderMode;
 
+                // FIXME: Max moving speed is limited by the keyboard repeat rate
+
                 switch(e.KeyCode) {
                     case Keys.Left:
-                        xMove = -factor;
+                        xMove = -moveFactor;
                         break;
                     case Keys.Right:
-                        xMove = factor;
+                        xMove = moveFactor;
                         break;
                     case Keys.Up:
-                        yMove = factor;
+                        yMove = moveFactor;
                         break;
                     case Keys.Down:
-                        yMove = -factor;
+                        yMove = -moveFactor;
                         break;
                     case Keys.Q:
-                        zMove = factor;
+                        zMove = moveFactor;
                         break;
                     case Keys.A:
-                        zMove = -factor;
+                        zMove = -moveFactor;
                         break;
                     case Keys.Add:
-                        zScale = 6 * factor;
+                        zScale = 6 * moveFactor;
                         break;
                     case Keys.Subtract:
-                        zScale = -6 * factor;
+                        zScale = -6 * moveFactor;
                         break;
                     case Keys.R:
                         renderMode++;
@@ -193,32 +194,31 @@ namespace PerlinNoise3DTerrain {
                 }
             };
 
-            this.Load += (object s, EventArgs e) => {
-                Application.DoEvents();
-                LabelShortcuts.Refresh();
-                Application.DoEvents();
+            this.Load += (object s, EventArgs e) => MainLoop();
+            this.Paint += (object s, PaintEventArgs e) => Render(e);
+        }
 
-                Task.Run(async () => {
-                    while(true) {
-                        await Task.Delay(15);
+        private void MainLoop() {
+            Task.Run(async () => {
+                while(true) {
+                    await Task.Delay(1000 / 60);
 
-                        if(hasChanged) {
-                            hasChanged = false;
+                    if(hasChanged) {
+                        hasChanged = false;
 
-                            lock(lckObj) {
-                                pNoiseXOffset += xMove * pNoiseFactorSpeed;
-                                pNoiseYOffset += yMove * pNoiseFactorSpeed;
-                                pNoiseZOffset += zMove * pNoiseFactorSpeed;
-                                pNoiseZScale += zScale * pNoiseFactorSpeed * 4.0;
+                        lock(lckObj) {
+                            pNoiseXOffset += xMove * pNoiseFactorSpeed;
+                            pNoiseYOffset += yMove * pNoiseFactorSpeed;
+                            pNoiseZOffset += zMove * pNoiseFactorSpeed;
+                            pNoiseZScale += zScale * pNoiseFactorSpeed * 4.0;
 
-                                cp = TransformPoint(camera, project: false);
-                            }
-
-                            this.Invalidate();
+                            cp = TransformPoint(camera, project: false);
                         }
+
+                        this.Invalidate();
                     }
-                });
-            };
+                }
+            });
         }
 
         private void CreateGrid() {
@@ -307,7 +307,7 @@ namespace PerlinNoise3DTerrain {
                    (p.Z >= distanceFactor);
         }
 
-        protected override void OnPaint(PaintEventArgs e) {
+        protected void Render(PaintEventArgs e) {
             Graphics g = e.Graphics;
 
             g.CompositingMode = CompositingMode.SourceCopy;
@@ -332,9 +332,9 @@ namespace PerlinNoise3DTerrain {
                                 tp3.Cross(tp4) +
                                 tp4.Cross(tp1); // Normal
                     double a = n.AngleXZ2(cp);
-                    if(a >= minAngle && a <= maxAngle && // Don't render faces facing away from the camera
-                        IsPointValid(tp1) || IsPointValid(tp2) ||
-                        IsPointValid(tp3) || IsPointValid(tp4)) {
+                    if((a >= minAngle && a <= maxAngle) && // Don't render faces facing away from the camera
+                        (IsPointValid(tp1) || IsPointValid(tp2) ||
+                        IsPointValid(tp3) || IsPointValid(tp4))) {
 
                         double az = (p1.Z + p2.Z + p3.Z + p4.Z) / 4.0;
                         int pi = (int)(Math.Abs(zPalette.Length * az / pNoiseZScale)) % zPalette.Length;
@@ -359,9 +359,14 @@ namespace PerlinNoise3DTerrain {
                                 break;
 
                             case RenderModes.WireFrame:
-                                g.DrawLine(Pens.Gainsboro, tp1.ToPointF(), tp2.ToPointF()); // -
-                                g.DrawLine(Pens.Gainsboro, tp2.ToPointF(), tp3.ToPointF()); // |
-                                g.DrawLine(Pens.Gainsboro, tp2.ToPointF(), tp4.ToPointF()); // /
+                                g.DrawLines(Pens.Gainsboro, new PointF[] {
+                                                                    tp1.ToPointF(),
+                                                                    tp2.ToPointF(),
+                                                                    tp2.ToPointF(),
+                                                                    tp3.ToPointF(),
+                                                                    tp2.ToPointF(),
+                                                                    tp4.ToPointF()
+                                                                });
                                 break;
                         }
                     }
