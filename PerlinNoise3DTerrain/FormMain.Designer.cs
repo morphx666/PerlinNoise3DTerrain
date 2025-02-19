@@ -35,14 +35,14 @@
             this.LabelShortcuts.Location = new System.Drawing.Point(12, 9);
             this.LabelShortcuts.Name = "LabelShortcuts";
             this.LabelShortcuts.Padding = new System.Windows.Forms.Padding(8);
-            this.LabelShortcuts.Size = new System.Drawing.Size(466, 82);
+            this.LabelShortcuts.Size = new System.Drawing.Size(376, 88);
             this.LabelShortcuts.TabIndex = 0;
             this.LabelShortcuts.Text = "Arrow Keys = Move\r\n[+] / [-]  = Change terrain height\r\n[Q] / [A]  = Change Perlin" +
-    " Noise Z attribute";
+    " Noise Z attribute\r\n[R]        = Change Render Mode: Filled";
             // 
             // FormMain
             // 
-            this.AutoScaleDimensions = new System.Drawing.SizeF(11F, 25F);
+            this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 20F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.BackColor = System.Drawing.Color.SkyBlue;
             this.ClientSize = new System.Drawing.Size(1067, 692);

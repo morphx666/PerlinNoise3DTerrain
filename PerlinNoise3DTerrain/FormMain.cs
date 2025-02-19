@@ -1,5 +1,6 @@
 ﻿using MorphxLibs;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -17,7 +18,12 @@ namespace PerlinNoise3DTerrain {
         private double fov = 512;
         private double distance = 300;
 
-        private bool drawWireFrame = false;
+        private enum RenderModes {
+            Filled = 0,
+            BoundingBox = 1,
+            WireFrame = 2
+        }
+        private RenderModes renderMode = RenderModes.Filled;
 
         private Point3d camera;
 
@@ -49,7 +55,11 @@ namespace PerlinNoise3DTerrain {
         private readonly List<Line3d> ls = new List<Line3d>();
         private (SolidBrush Brush, Pen Pen)[] zPalette;
 
-        private bool hasChanged = false;
+        private Point3d cp;
+        private const double minAngle = 30 * Point3d.ToRad;
+        private const double maxAngle = 140 * Point3d.ToRad;
+
+        private bool hasChanged = true;
         private object lckObj = new object();
         private bool isInit = false;
 
@@ -66,23 +76,6 @@ namespace PerlinNoise3DTerrain {
 
             CreateZPalette();
             PerlinNoise.Init();
-
-            Task.Run(() => {
-                while(true) {
-                    Thread.Sleep(15);
-                    if(hasChanged) {
-                        lock(lckObj) {
-                            pNoiseXOffset += xMove * pNoiseFactorSpeed;
-                            pNoiseYOffset += yMove * pNoiseFactorSpeed;
-                            pNoiseZOffset += zMove * pNoiseFactorSpeed;
-                            pNoiseZScale += zScale * pNoiseFactorSpeed * 4.0;
-                        }
-
-                        this.Invalidate();
-                    }
-                }
-            });
-
             AddEventHandlers();
         }
 
@@ -113,34 +106,48 @@ namespace PerlinNoise3DTerrain {
         private Point mousePos;
         private bool isMouseDown;
         private void AddEventHandlers() {
+            const int factor = 4;
+
             this.KeyDown += (object s, KeyEventArgs e) => {
+                RenderModes currentRenderMode = renderMode;
+
                 switch(e.KeyCode) {
                     case Keys.Left:
-                        xMove = -1;
+                        xMove = -factor;
                         break;
                     case Keys.Right:
-                        xMove = 1;
+                        xMove = factor;
                         break;
                     case Keys.Up:
-                        yMove = 1;
+                        yMove = factor;
                         break;
                     case Keys.Down:
-                        yMove = -1;
+                        yMove = -factor;
                         break;
                     case Keys.Q:
-                        zMove = 1;
+                        zMove = factor;
                         break;
                     case Keys.A:
-                        zMove = -1;
+                        zMove = -factor;
                         break;
                     case Keys.Add:
-                        zScale = 6;
+                        zScale = 6 * factor;
                         break;
                     case Keys.Subtract:
-                        zScale = -6;
+                        zScale = -6 * factor;
+                        break;
+                    case Keys.R:
+                        renderMode++;
+                        renderMode = (RenderModes)((int)renderMode % 3);
+                        
+                        // FIXME: Not cool...```
+                        string helpText = LabelShortcuts.Text.Split(':')[0];
+                        helpText += ": " + renderMode.ToString();
+                        LabelShortcuts.Text = helpText;
+
                         break;
                 }
-                hasChanged = xMove != 0 || yMove != 0 || zMove != 0 || zScale != 0;
+                hasChanged = xMove != 0 || yMove != 0 || zMove != 0 || zScale != 0 || currentRenderMode != renderMode;
             };
 
             this.KeyUp += (object s, KeyEventArgs e) => {
@@ -184,6 +191,33 @@ namespace PerlinNoise3DTerrain {
                     mousePos = e.Location;
                     hasChanged = true;
                 }
+            };
+
+            this.Load += (object s, EventArgs e) => {
+                Application.DoEvents();
+                LabelShortcuts.Refresh();
+                Application.DoEvents();
+
+                Task.Run(async () => {
+                    while(true) {
+                        await Task.Delay(15);
+
+                        if(hasChanged) {
+                            hasChanged = false;
+
+                            lock(lckObj) {
+                                pNoiseXOffset += xMove * pNoiseFactorSpeed;
+                                pNoiseYOffset += yMove * pNoiseFactorSpeed;
+                                pNoiseZOffset += zMove * pNoiseFactorSpeed;
+                                pNoiseZScale += zScale * pNoiseFactorSpeed * 4.0;
+
+                                cp = TransformPoint(camera, project: false);
+                            }
+
+                            this.Invalidate();
+                        }
+                    }
+                });
             };
         }
 
@@ -278,13 +312,9 @@ namespace PerlinNoise3DTerrain {
 
             g.CompositingMode = CompositingMode.SourceCopy;
             g.CompositingQuality = CompositingQuality.HighSpeed;
-            g.TranslateTransform(0, ty);
+            g.TranslateTransform(0, ty);           
 
-            Point3d cp = TransformPoint(camera, project: false);
-            double minAngle = 30 * Point3d.ToRad;
-            double maxAngle = 140 * Point3d.ToRad;
-
-            lock(lckObj) { // This prevents glitches but makes the program unbearably slow
+            lock(lckObj) {
                 // Cycle through all lines in reverse z-order (from farthest to closest)
                 for(int i = ls.Count - 3; i >= 0; i -= 3) {
                     Point3d p1 = GetPerlinZ(ls[i + 0].Start);
@@ -302,30 +332,37 @@ namespace PerlinNoise3DTerrain {
                                 tp3.Cross(tp4) +
                                 tp4.Cross(tp1); // Normal
                     double a = n.AngleXZ2(cp);
-                    if(a >= minAngle && a <= maxAngle &&
+                    if(a >= minAngle && a <= maxAngle && // Don't render faces facing away from the camera
                         IsPointValid(tp1) || IsPointValid(tp2) ||
                         IsPointValid(tp3) || IsPointValid(tp4)) {
 
                         double az = (p1.Z + p2.Z + p3.Z + p4.Z) / 4.0;
                         int pi = (int)(Math.Abs(zPalette.Length * az / pNoiseZScale)) % zPalette.Length;
-                        g.FillPolygon(zPalette[pi].Brush, new PointF[] {
-                                                            tp1.ToPointF(),
-                                                            tp2.ToPointF(),
-                                                            tp3.ToPointF(),
-                                                            tp4.ToPointF()
-                                                        });
 
-                        //g.DrawPolygon(zPalette[pi].Pen, new PointF[] {
-                        //                                    tp1.ToPointF(),
-                        //                                    tp2.ToPointF(),
-                        //                                    tp3.ToPointF(),
-                        //                                    tp4.ToPointF()
-                        //                                });
+                        switch(renderMode) {
+                            case RenderModes.Filled:
+                                g.FillPolygon(zPalette[pi].Brush, new PointF[] {
+                                                                    tp1.ToPointF(),
+                                                                    tp2.ToPointF(),
+                                                                    tp3.ToPointF(),
+                                                                    tp4.ToPointF()
+                                                                });
+                                break;
 
-                        if(drawWireFrame) {
-                            g.DrawLine(Pens.Gainsboro, tp1.ToPointF(), tp2.ToPointF()); // -
-                            g.DrawLine(Pens.Gainsboro, tp2.ToPointF(), tp3.ToPointF()); // |
-                            g.DrawLine(Pens.Gainsboro, tp2.ToPointF(), tp4.ToPointF()); // /
+                            case RenderModes.BoundingBox:
+                                g.DrawPolygon(zPalette[pi].Pen, new PointF[] {
+                                                                    tp1.ToPointF(),
+                                                                    tp2.ToPointF(),
+                                                                    tp3.ToPointF(),
+                                                                    tp4.ToPointF()
+                                                                });
+                                break;
+
+                            case RenderModes.WireFrame:
+                                g.DrawLine(Pens.Gainsboro, tp1.ToPointF(), tp2.ToPointF()); // -
+                                g.DrawLine(Pens.Gainsboro, tp2.ToPointF(), tp3.ToPointF()); // |
+                                g.DrawLine(Pens.Gainsboro, tp2.ToPointF(), tp4.ToPointF()); // /
+                                break;
                         }
                     }
                 }
